@@ -6,7 +6,7 @@
 // can't be used by anyone who just happens to find the URL.
 
 const { put } = require('@vercel/blob');
-const { verifySession } = require('./_auth');
+const { verifySession } = require('../lib/auth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -33,7 +33,6 @@ module.exports = async (req, res) => {
     const blob = await put(`projects/${Date.now()}-${safeName}`, req, {
       access: 'public',
       addRandomSuffix: true,
-      token: process.env.BLOB_BLOB_READ_WRITE_TOKEN,
     });
     res.status(200).json({ url: blob.url });
   } catch (err) {

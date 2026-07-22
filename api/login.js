@@ -2,7 +2,7 @@
 // Checks the PIN against the ADMIN_PIN environment variable (server-side,
 // never shipped to the browser) and sets a signed, httpOnly session cookie.
 
-const { makeSessionCookie } = require('./_auth');
+const { makeSessionCookie } = require('../lib/auth');
 
 // Set a real ADMIN_PIN env var in Vercel before deploying publicly.
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';

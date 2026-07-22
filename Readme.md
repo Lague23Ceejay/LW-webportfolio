@@ -16,7 +16,8 @@ api/login.js     Checks the PIN server-side and sets a signed session cookie
 api/logout.js    Clears the session cookie
 api/session.js   Tells the admin page whether the visitor is logged in
 api/upload.js    Uploads to Vercel Blob — requires a valid session
-api/_auth.js     Shared helper for signing/checking the session cookie
+lib/auth.js      Shared helper for signing/checking the session cookie
+                 (kept outside /api so Vercel doesn't treat it as a route)
 package.json     Dependency (@vercel/blob) for the API routes
 vercel.json      Minimal Vercel config
 ```

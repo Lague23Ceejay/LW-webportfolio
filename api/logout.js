@@ -1,6 +1,6 @@
 // POST /api/logout — clears the admin session cookie.
 
-const { makeClearCookie } = require('./_auth');
+const { makeClearCookie } = require('../lib/auth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
