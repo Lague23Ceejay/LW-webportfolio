@@ -4,9 +4,13 @@
   "private": true,
   "description": "Lightweight portfolio site with an admin panel and Vercel Blob image uploads.",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "npx http-server -p 5500",
+    "start": "vercel dev"
   },
   "dependencies": {
     "@vercel/blob": "^0.27.0"
+  },
+  "devDependencies": {
+    "vercel": "^56.5.0"
   }
 }
