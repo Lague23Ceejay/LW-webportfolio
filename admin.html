@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Portfolio</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-body">
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="status-line">
+      <span class="dot"></span>
+      <span class="brand">Edit your site</span>
+    </div>
+    <div class="header-actions">
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
+        <span id="theme-icon">&#9789;</span>
+        <span id="theme-label">Dark mode</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="admin-shell">
+
+  <!-- Login screen -->
+  <div class="login-screen" id="login-screen">
+    <h2>Enter your PIN</h2>
+    <p style="color:var(--text-dim); font-size:13.5px;">This page is where you can update the text, photos, and projects on your site.</p>
+    <input type="password" id="pin" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="&bull;&bull;&bull;&bull;">
+    <div class="login-error" id="login-error"></div>
+    <button class="btn btn-primary" id="login-btn" style="width:100%; justify-content:center;">Unlock</button>
+  </div>
+
+  <!-- Admin console + editors -->
+  <div id="admin-console" style="display:none;">
+    <div class="admin-topbar">
+      <h1>Edit your site</h1>
+      <div style="display:flex; gap:16px; align-items:center;">
+        <span class="badge-saved" id="saved-badge">Saved ✓</span>
+        <a href="index.html">&larr; view my site</a>
+        <a href="#" id="logout-link">log out</a>
+      </div>
+    </div>
+
+    <p class="admin-intro">Update anything below and press its Save button. Changes appear on your site right away.</p>
+
+    <div class="admin-grid">
+
+      <div class="panel">
+        <h2>Profile photos</h2>
+        <p class="panel-help">Add a photo of yourself. Add a second one too, and your site will gently fade between the two every couple of seconds — like a mini slideshow.</p>
+        <div class="photo-row">
+          <div class="photo-slot">
+            <div class="photo-preview" id="preview-primary"></div>
+            <label class="upload-label" for="upload-primary">Main photo</label>
+            <input type="file" id="upload-primary" accept="image/*">
+            <span class="upload-status" id="status-primary"></span>
+          </div>
+          <div class="photo-slot">
+            <div class="photo-preview" id="preview-secondary"></div>
+            <label class="upload-label" for="upload-secondary">Second photo (optional)</label>
+            <input type="file" id="upload-secondary" accept="image/*">
+            <span class="upload-status" id="status-secondary"></span>
+            <button class="link-btn" id="remove-secondary" type="button">Remove second photo</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>About you</h2>
+        <p class="panel-help">This is the paragraph visitors read about who you are.</p>
+        <textarea id="input-about"></textarea>
+        <div class="row">
+          <button class="btn btn-primary" id="save-about">Save about text</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Quick details</h2>
+        <p class="panel-help">Shown in the small box next to your bio.</p>
+        <div class="row" style="flex-direction:column; gap:10px;">
+          <label class="field-label" for="input-location">Where you're based</label>
+          <input type="text" id="input-location" placeholder="e.g. Remote / Worldwide">
+          <label class="field-label" for="input-focus">What you focus on</label>
+          <input type="text" id="input-focus" placeholder="e.g. Frontend & full-stack development">
+          <label class="field-label" for="input-status">Your availability</label>
+          <input type="text" id="input-status" placeholder="e.g. Open to new projects">
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="save-facts">Save details</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Projects</h2>
+        <p class="panel-help">These show up as cards on your site. Add as many as you like.</p>
+        <div id="project-list"></div>
+        <div class="add-project-form">
+          <p class="field-label" style="margin-top:6px;">Add a new project</p>
+          <div class="row" style="flex-direction:column; gap:10px;">
+            <input type="text" id="new-project-name" placeholder="Project name">
+            <textarea id="new-project-desc" placeholder="A sentence or two describing it" style="min-height:70px;"></textarea>
+            <input type="text" id="new-project-tags" placeholder="Tools used, separated by commas (e.g. React, Node)">
+            <input type="text" id="new-project-link" placeholder="Link to view it (optional)">
+            <div class="upload-row">
+              <label class="upload-label" for="new-project-image">Project image (optional)</label>
+              <input type="file" id="new-project-image" accept="image/*">
+              <span id="upload-status"></span>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" id="add-project">Add project</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Footer text</h2>
+        <p class="panel-help">One line shown at the very bottom of your site.</p>
+        <input type="text" id="input-footer" placeholder="e.g. Thanks for stopping by.">
+        <div class="row">
+          <button class="btn btn-primary" id="save-footer">Save footer</button>
+        </div>
+      </div>
+
+      <details class="panel advanced-panel">
+        <summary>Advanced: command console (optional)</summary>
+        <p style="font-size:13px; color:var(--text-dim); margin:12px 0 16px;">
+          This is an optional shortcut for making several edits at once by typing commands.
+          You don't need to use this — everything above does the same thing.
+        </p>
+        <div class="console">
+          <div class="console-output" id="console-output">
+            <p>Type <span class="cmd-echo">help</span> to see available commands.</p>
+          </div>
+          <div class="console-input-row">
+            <span class="console-prompt">$</span>
+            <input type="text" id="console-input" autocomplete="off" placeholder="update about Some new bio text...">
+          </div>
+        </div>
+        <ul class="hint-list">
+          <li>update about &lt;text&gt;</li>
+          <li>update footer &lt;text&gt;</li>
+          <li>add project &lt;name&gt; | &lt;description&gt; | &lt;tag1,tag2&gt; | &lt;link&gt;</li>
+          <li>remove project &lt;name or id&gt;</li>
+          <li>list projects</li>
+          <li>theme light / theme dark</li>
+          <li>clear</li>
+        </ul>
+      </details>
+
+    </div>
+  </div>
+</main>
+
+<script src="script.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

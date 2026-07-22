@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio</title>
+<meta name="description" content="Personal portfolio">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="status-line">
+      <span class="dot"></span>
+      <span class="brand" id="brand-name">Jordan Reyes</span>
+      <span>&mdash; available for work</span>
+    </div>
+    <nav class="main-nav">
+      <a href="#about">About</a>
+      <a href="#projects">Projects</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
+        <span id="theme-icon">&#9789;</span>
+        <span id="theme-label">Dark mode</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <p class="eyebrow">// Software Engineer</p>
+        <h1>I build clean, fast, and thoughtful digital products.</h1>
+        <p class="lede">I'm a developer who cares about the details — from the architecture underneath to the pixel on screen. This is a running log of things I've built and shipped.</p>
+        <div class="hero-actions">
+          <a href="#projects" class="btn btn-primary">View projects</a>
+          <a href="#contact" class="btn btn-ghost">Get in touch</a>
+        </div>
+      </div>
+      <div class="hero-avatar-wrap" id="hero-avatar-wrap">
+        <img class="hero-avatar" id="avatar-a" src="" alt="Profile photo">
+        <img class="hero-avatar avatar-b" id="avatar-b" src="" alt="Profile photo alternate">
+      </div>
+    </div>
+  </section>
+
+  <section id="about" class="wrap">
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <h2>About</h2>
+    </div>
+    <div class="about-grid">
+      <p id="about-text">I'm a full-stack developer with a few years of experience building web applications end to end. I like working close to the product — turning fuzzy ideas into interfaces people actually enjoy using, and making sure what's under the hood is just as considered.
+
+Outside of client work, I spend time exploring new tools, contributing to small open-source projects, and writing about what I learn along the way.</p>
+      <dl class="facts">
+        <dt>Based in</dt>
+        <dd id="fact-location">Remote / Worldwide</dd>
+        <dt>Focus</dt>
+        <dd id="fact-focus">Frontend &amp; full-stack development</dd>
+        <dt>Currently</dt>
+        <dd id="fact-status">Open to new projects</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section id="projects" class="wrap">
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2>Projects</h2>
+    </div>
+    <div class="projects-grid" id="projects-grid">
+      <!-- populated by script.js -->
+    </div>
+  </section>
+
+  <section id="contact" class="wrap">
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <h2>Contact</h2>
+    </div>
+    <div class="contact-grid">
+      <a class="contact-card" href="mailto:hello@example.com">
+        <div class="label">Email</div>
+        <div class="value">hello@example.com</div>
+      </a>
+      <a class="contact-card" href="https://github.com" target="_blank" rel="noopener">
+        <div class="label">GitHub</div>
+        <div class="value">github.com/yourname</div>
+      </a>
+      <a class="contact-card" href="https://linkedin.com" target="_blank" rel="noopener">
+        <div class="label">LinkedIn</div>
+        <div class="value">linkedin.com/in/yourname</div>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer wrap">
+  <div class="foot-inner">
+    <p id="footer-text">Designed and built from scratch. Thanks for stopping by.</p>
+    <p class="foot-credit">&copy; <span id="footer-year"></span> &middot; <a href="/admin.html">admin</a></p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
