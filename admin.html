@@ -28,9 +28,9 @@
 
   <!-- Login screen -->
   <div class="login-screen" id="login-screen">
-    <h2>Enter your PIN</h2>
+    <h2>Enter your passcode</h2>
     <p style="color:var(--text-dim); font-size:13.5px;">This page is where you can update the text, photos, and projects on your site.</p>
-    <input type="password" id="pin" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="&bull;&bull;&bull;&bull;">
+    <input type="password" id="pin" class="pin-input" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Passcode">
     <div class="login-error" id="login-error"></div>
     <button class="btn btn-primary" id="login-btn" style="width:100%; justify-content:center;">Unlock</button>
   </div>

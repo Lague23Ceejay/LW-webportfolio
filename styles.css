@@ -379,8 +379,8 @@ body.admin-body{
 .pin-input{
   width:100%;
   font-family:var(--font-mono);
-  font-size:22px;
-  letter-spacing:10px;
+  font-size:18px;
+  letter-spacing:2px;
   text-align:center;
   padding:14px;
   border-radius:8px;

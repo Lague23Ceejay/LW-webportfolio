@@ -33,6 +33,7 @@ module.exports = async (req, res) => {
     const blob = await put(`projects/${Date.now()}-${safeName}`, req, {
       access: 'public',
       addRandomSuffix: true,
+      token: process.env.BLOB_BLOB_READ_WRITE_TOKEN,
     });
     res.status(200).json({ url: blob.url });
   } catch (err) {

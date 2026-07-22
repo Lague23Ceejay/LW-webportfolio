@@ -42,17 +42,22 @@ serverless function.
    `BLOB_READ_WRITE_TOKEN` environment variable — you don't need to create
    it by hand.
 3. In **Settings → Environment Variables**, add:
-   - `ADMIN_PIN` — the 4-digit PIN you actually want to use (defaults to
-     `1234` if you don't set this, so set it before sharing the URL).
+   - `ADMIN_PIN` — your login passcode (defaults to `1234` if you don't set
+     this, so set it before sharing the URL). This can be a 4-digit number
+     or a longer letters+numbers passphrase — the login field accepts
+     either.
    - `SESSION_SECRET` — any long random string (e.g. run
      `openssl rand -hex 32` and paste the result). This signs the login
-     session, so it should be different from your PIN and kept private.
+     session, so it should be different from your passcode and kept
+     private.
 4. Redeploy so the functions pick up the new environment variables.
 
 ## Admin panel
 
 - Go to `/admin.html`.
-- Enter your PIN (set via the `ADMIN_PIN` environment variable — see above).
+- Enter your passcode (set via the `ADMIN_PIN` environment variable — see
+  above). It can be a 4-digit number or a longer letters+numbers
+  passphrase.
 - Everything is arranged into plain-language panels: **Profile photos**,
   **About you**, **Quick details**, **Projects**, **Footer text**. Fill in
   a field and press its Save button — you'll see a small "Saved ✓" confirm
