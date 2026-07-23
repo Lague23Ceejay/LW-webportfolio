@@ -51,6 +51,18 @@
     <div class="admin-grid">
 
       <div class="panel">
+        <h2>Resume</h2>
+        <p class="panel-help">Upload your resume as a PDF, or as an image if that's easier. A download button will appear on your site automatically once you add one.</p>
+        <div id="resume-status" class="resume-status"></div>
+        <div class="upload-row">
+          <label class="upload-label" for="upload-resume">Upload resume</label>
+          <input type="file" id="upload-resume" accept=".pdf,image/*">
+          <span id="status-resume" class="upload-status"></span>
+        </div>
+        <button class="link-btn" id="remove-resume" type="button">Remove resume</button>
+      </div>
+
+      <div class="panel">
         <h2>Profile photos</h2>
         <p class="panel-help">Add a photo of yourself. Add a second one too, and your site will gently fade between the two every couple of seconds — like a mini slideshow.</p>
         <div class="photo-row">

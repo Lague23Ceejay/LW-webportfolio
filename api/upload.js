@@ -12,7 +12,7 @@
 const { handleUpload } = require('@vercel/blob/client');
 const { verifySession } = require('../lib/auth');
 
-const ALLOWED_TYPES = [
+const IMAGE_TYPES = [
   'image/png',
   'image/jpeg',
   'image/gif',
@@ -20,6 +20,8 @@ const ALLOWED_TYPES = [
   'image/svg+xml',
   'image/avif',
 ];
+
+const RESUME_TYPES = [...IMAGE_TYPES, 'application/pdf'];
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -31,19 +33,26 @@ module.exports = async (req, res) => {
     const jsonResponse = await handleUpload({
       body: req.body,
       request: req,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
         if (!verifySession(req)) {
           throw new Error('Not logged in. Please log into the admin panel first.');
         }
+        let kind = 'image';
+        try {
+          kind = JSON.parse(clientPayload || '{}').kind || 'image';
+        } catch {
+          // ignore malformed payload, fall back to 'image'
+        }
+        const isResume = kind === 'resume';
         return {
-          allowedContentTypes: ALLOWED_TYPES,
+          allowedContentTypes: isResume ? RESUME_TYPES : IMAGE_TYPES,
           addRandomSuffix: true,
-          maximumSizeInBytes: 20 * 1024 * 1024, // 20MB per file
+          maximumSizeInBytes: isResume ? 10 * 1024 * 1024 : 20 * 1024 * 1024,
         };
       },
       onUploadCompleted: async () => {
-        // Nothing to persist server-side — the resulting URL is saved into
-        // localStorage by admin.js once the upload finishes.
+        // Nothing to persist server-side — the resulting URL is saved via
+        // /api/content by admin.js once the upload finishes.
       },
     });
     res.status(200).json(jsonResponse);

@@ -11,6 +11,57 @@
 
 const STORAGE_KEY = 'portfolioData';
 
+/* =========================================================
+   Zod schema — validates whatever is loaded from / saved to
+   localStorage so a corrupted or malformed record can't silently
+   break the site or get written back out.
+   Loaded from a CDN at runtime since this project has no build step.
+   ========================================================= */
+let PortfolioSchema = null;
+let _schemaReadyPromise = null;
+
+function ensureSchema(){
+  if(PortfolioSchema) return Promise.resolve(PortfolioSchema);
+  if(!_schemaReadyPromise){
+    _schemaReadyPromise = import('https://esm.sh/zod@3.23.8')
+      .then(({ z }) => {
+        const ProjectSchema = z.object({
+          id: z.string().min(1),
+          name: z.string().min(1, 'Project name is required'),
+          desc: z.string().default(''),
+          tags: z.array(z.string()).default([]),
+          image: z.string().default(''),
+          link: z.string().default('')
+        });
+        PortfolioSchema = z.object({
+          about: z.string().default(''),
+          footer: z.string().default(''),
+          facts: z.object({
+            location: z.string().default(''),
+            focus: z.string().default(''),
+            status: z.string().default('')
+          }).default({}),
+          profile: z.object({
+            primary: z.string().default(''),
+            secondary: z.string().default('')
+          }).default({}),
+          resume: z.object({
+            url: z.string().default(''),
+            filename: z.string().default(''),
+            type: z.string().default('')
+          }).default({}),
+          projects: z.array(ProjectSchema).default([])
+        });
+        return PortfolioSchema;
+      })
+      .catch((err) => {
+        console.warn('Could not load validation library; continuing without schema validation.', err);
+        return null;
+      });
+  }
+  return _schemaReadyPromise;
+}
+
 const DEFAULT_DATA = {
   about: document.getElementById('about-text')?.textContent.trim() || '',
   footer: 'Designed and built from scratch. Thanks for stopping by.',
@@ -22,6 +73,11 @@ const DEFAULT_DATA = {
   profile: {
     primary: '',
     secondary: ''
+  },
+  resume: {
+    url: '',
+    filename: '',
+    type: ''
   },
   projects: [
     {
@@ -51,16 +107,86 @@ const DEFAULT_DATA = {
   ]
 };
 
-function loadData(){
+/**
+ * Loads content from the shared server-side store (/api/content, backed by
+ * Vercel Blob) so every device and browser sees the same thing. Falls back
+ * to a locally cached copy (if the network/API is unreachable) and finally
+ * to the built-in defaults.
+ */
+async function loadData(){
+  let merged = null;
+
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return structuredClone(DEFAULT_DATA);
-    const parsed = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_DATA), ...parsed };
+    const res = await fetch('/api/content');
+    if(res.ok){
+      const { data } = await res.json();
+      if(data){
+        merged = { ...structuredClone(DEFAULT_DATA), ...data };
+        // keep a local cache purely as an offline fallback
+        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }catch(e){ /* ignore quota errors */ }
+      }
+    }
   }catch(e){
-    console.warn('Could not read saved content, using defaults.', e);
-    return structuredClone(DEFAULT_DATA);
+    console.warn('Could not reach /api/content, checking local cache.', e);
   }
+
+  if(!merged){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) merged = { ...structuredClone(DEFAULT_DATA), ...JSON.parse(raw) };
+    }catch(e){
+      console.warn('Local cache unreadable, using defaults.', e);
+    }
+  }
+
+  if(!merged) merged = structuredClone(DEFAULT_DATA);
+
+  const schema = await ensureSchema();
+  if(!schema) return merged;
+
+  const result = schema.safeParse(merged);
+  if(result.success) return result.data;
+
+  console.warn('Saved content failed validation, falling back to defaults.', result.error);
+  return structuredClone(DEFAULT_DATA);
+}
+
+/**
+ * Validates `data` against the schema and, if valid, saves it to the
+ * shared server-side store (/api/content). Returns { ok: true } on success
+ * or { ok: false, message } if validation or the save request failed.
+ */
+async function saveData(data){
+  const schema = await ensureSchema();
+  let toSave = data;
+
+  if(schema){
+    const result = schema.safeParse(data);
+    if(!result.success){
+      const message = result.error.issues
+        .map(i => `${i.path.join('.') || 'value'}: ${i.message}`)
+        .join('\n');
+      return { ok: false, message };
+    }
+    toSave = result.data;
+  }
+
+  try{
+    const res = await fetch('/api/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toSave)
+    });
+    if(!res.ok){
+      const errBody = await res.json().catch(() => ({}));
+      return { ok: false, message: errBody.error || `Save failed (${res.status})` };
+    }
+  }catch(e){
+    return { ok: false, message: 'Could not reach the server. Check your connection and try again.' };
+  }
+
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)); }catch(e){ /* ignore quota errors */ }
+  return { ok: true };
 }
 
 function escapeHtml(str=''){
@@ -71,8 +197,8 @@ function escapeHtml(str=''){
     .replace(/"/g,'&quot;');
 }
 
-function renderContent(){
-  const data = loadData();
+async function renderContent(){
+  const data = await loadData();
 
   const aboutEl = document.getElementById('about-text');
   if(aboutEl) aboutEl.textContent = data.about;
@@ -93,6 +219,20 @@ function renderContent(){
       grid.innerHTML = `<div class="empty-state">No projects added yet. Head to /admin to add your first one.</div>`;
     } else {
       grid.innerHTML = data.projects.map(renderProjectCard).join('');
+    }
+  }
+
+  const resumeLink = document.getElementById('resume-link');
+  if(resumeLink){
+    if(data.resume?.url){
+      resumeLink.href = data.resume.url;
+      resumeLink.style.display = '';
+      resumeLink.textContent = data.resume.filename
+        ? `Download resume (${data.resume.filename})`
+        : 'Download resume';
+    } else {
+      resumeLink.style.display = 'none';
+      resumeLink.removeAttribute('href');
     }
   }
 }
@@ -135,14 +275,14 @@ function initialsAvatarDataUrl(name){
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 
-function initProfilePhoto(){
+async function initProfilePhoto(){
   const wrap = document.getElementById('hero-avatar-wrap');
   if(!wrap) return;
   const a = document.getElementById('avatar-a');
   const b = document.getElementById('avatar-b');
   if(_avatarSwapInterval){ clearInterval(_avatarSwapInterval); _avatarSwapInterval = null; }
 
-  const data = loadData();
+  const data = await loadData();
   const name = document.getElementById('brand-name')?.textContent || 'JR';
   const fallback = initialsAvatarDataUrl(name);
   const primary = data.profile?.primary || fallback;
@@ -190,18 +330,55 @@ function initTheme(){
 /* =========================================================
    Init
    ========================================================= */
-document.addEventListener('DOMContentLoaded', () => {
+/* =========================================================
+   Scroll reveal
+   Each section slides in from a different direction the first time it
+   enters the viewport: About from the left, Projects from the right,
+   Contact from below, Footer from above.
+   ========================================================= */
+function initScrollReveal(){
+  const targets = document.querySelectorAll('.reveal');
+  if(!targets.length) return;
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(prefersReduced){
+    targets.forEach(el => el.classList.add('reveal-visible'));
+    return;
+  }
+
+  if(!('IntersectionObserver' in window)){
+    targets.forEach(el => el.classList.add('reveal-visible'));
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('reveal-visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+
+  targets.forEach(el => observer.observe(el));
+}
+
+/* =========================================================
+   Init
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
-  renderContent();
-  initProfilePhoto();
+  await renderContent();
+  await initProfilePhoto();
+  initScrollReveal();
   const yearEl = document.getElementById('footer-year');
   if(yearEl) yearEl.textContent = new Date().getFullYear();
 });
 
 // Keep the public page in sync if content is edited in another tab (admin panel)
-window.addEventListener('storage', (e) => {
+window.addEventListener('storage', async (e) => {
   if(e.key === STORAGE_KEY){
-    renderContent();
-    initProfilePhoto();
+    await renderContent();
+    await initProfilePhoto();
   }
 });

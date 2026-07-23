@@ -9,12 +9,13 @@ function showLogin(){
   document.getElementById('login-screen').style.display = 'block';
   document.getElementById('admin-console').style.display = 'none';
 }
-function showConsole(){
+async function showConsole(){
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('admin-console').style.display = 'block';
-  populateForms();
-  renderProjectList();
-  renderPhotoPreviews();
+  await populateForms();
+  await renderProjectList();
+  await renderPhotoPreviews();
+  await renderResumeStatus();
 }
 
 async function checkSession(){
@@ -47,7 +48,7 @@ async function attemptLogin(){
     });
     if(res.ok){
       pinInput.value = '';
-      showConsole();
+      await showConsole();
     } else {
       const data = await res.json().catch(() => ({}));
       error.textContent = data.error || 'Incorrect PIN. Try again.';
@@ -68,7 +69,7 @@ async function logout(){
 
 document.addEventListener('DOMContentLoaded', async () => {
   const authenticated = await checkSession();
-  if(authenticated) showConsole(); else showLogin();
+  if(authenticated) await showConsole(); else showLogin();
 
   document.getElementById('login-btn').addEventListener('click', attemptLogin);
   document.getElementById('pin').addEventListener('keydown', (e) => {
@@ -87,6 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('upload-primary').addEventListener('change', (e) => handleProfilePhotoUpload(e, 'primary'));
   document.getElementById('upload-secondary').addEventListener('change', (e) => handleProfilePhotoUpload(e, 'secondary'));
   document.getElementById('remove-secondary').addEventListener('click', removeSecondaryPhoto);
+  document.getElementById('upload-resume').addEventListener('change', handleResumeUpload);
+  document.getElementById('remove-resume').addEventListener('click', removeResume);
 
   const consoleInput = document.getElementById('console-input');
   consoleInput.addEventListener('keydown', (e) => {
@@ -99,14 +102,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /* =========================================================
-   Data helpers (STORAGE_KEY / loadData / renderContent / initProfilePhoto
-   come from script.js)
+   Data helpers (STORAGE_KEY / loadData / saveData / renderContent /
+   initProfilePhoto all come from script.js — saveData there validates
+   against the shared Zod schema before writing to localStorage)
    ========================================================= */
-function saveData(data){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  renderContent();
-  if(typeof initProfilePhoto === 'function') initProfilePhoto();
+
+/**
+ * Wraps script.js's saveData(): on success, refreshes the visible preview
+ * and shows the "Saved ✓" badge; on validation failure, alerts the person
+ * with the specific field(s) that were rejected and writes nothing.
+ */
+async function persist(data){
+  const result = await saveData(data);
+  if(!result.ok){
+    alert('Could not save — please check the following:\n\n' + result.message);
+    return false;
+  }
+  await renderContent();
+  if(typeof initProfilePhoto === 'function') await initProfilePhoto();
   flashSaved();
+  return true;
 }
 
 function flashSaved(){
@@ -124,8 +139,8 @@ function slugify(name){
 /* =========================================================
    Form editors
    ========================================================= */
-function populateForms(){
-  const data = loadData();
+async function populateForms(){
+  const data = await loadData();
   document.getElementById('input-about').value = data.about;
   document.getElementById('input-location').value = data.facts.location;
   document.getElementById('input-focus').value = data.facts.focus;
@@ -133,31 +148,75 @@ function populateForms(){
   document.getElementById('input-footer').value = data.footer;
 }
 
-function saveAboutForm(){
-  const data = loadData();
+async function saveAboutForm(){
+  const data = await loadData();
   data.about = document.getElementById('input-about').value;
-  saveData(data);
+  await persist(data);
 }
 
-function saveFactsForm(){
-  const data = loadData();
+async function saveFactsForm(){
+  const data = await loadData();
   data.facts = {
     location: document.getElementById('input-location').value,
     focus: document.getElementById('input-focus').value,
     status: document.getElementById('input-status').value
   };
-  saveData(data);
+  await persist(data);
 }
 
-function saveFooterForm(){
-  const data = loadData();
+async function saveFooterForm(){
+  const data = await loadData();
   data.footer = document.getElementById('input-footer').value;
-  saveData(data);
+  await persist(data);
+}
+
+/* ---- Resume ---- */
+async function renderResumeStatus(){
+  const data = await loadData();
+  const el = document.getElementById('resume-status');
+  if(data.resume?.url){
+    el.innerHTML = `Current resume: <a href="${data.resume.url}" target="_blank" rel="noopener">${data.resume.filename || 'view file'}</a>`;
+  } else {
+    el.textContent = 'No resume uploaded yet.';
+  }
+}
+
+async function handleResumeUpload(e){
+  const file = e.target.files[0];
+  const status = document.getElementById('status-resume');
+  if(!file) return;
+  status.textContent = 'Uploading...';
+  try{
+    const url = await uploadFileToBlob(file, 'resume');
+    const data = await loadData();
+    data.resume = { url, filename: file.name, type: file.type };
+    const ok = await persist(data);
+    if(ok){
+      await renderResumeStatus();
+      status.textContent = 'Uploaded ✓';
+    } else {
+      status.textContent = '';
+    }
+  }catch(err){
+    console.error(err);
+    status.textContent = /401|not logged in/i.test(err.message || '')
+      ? 'Please log in again, then retry.'
+      : 'Upload failed. Try again.';
+  }
+}
+
+async function removeResume(){
+  const data = await loadData();
+  data.resume = { url: '', filename: '', type: '' };
+  await persist(data);
+  await renderResumeStatus();
+  document.getElementById('status-resume').textContent = '';
+  document.getElementById('upload-resume').value = '';
 }
 
 /* ---- Profile photos ---- */
-function renderPhotoPreviews(){
-  const data = loadData();
+async function renderPhotoPreviews(){
+  const data = await loadData();
   const primary = document.getElementById('preview-primary');
   const secondary = document.getElementById('preview-secondary');
   primary.style.backgroundImage = data.profile?.primary ? `url("${data.profile.primary}")` : '';
@@ -171,26 +230,30 @@ async function handleProfilePhotoUpload(e, slot){
   status.textContent = 'Uploading...';
   try{
     const url = await uploadFileToBlob(file);
-    const data = loadData();
+    const data = await loadData();
     data.profile = data.profile || { primary:'', secondary:'' };
     data.profile[slot] = url;
-    saveData(data);
-    renderPhotoPreviews();
-    status.textContent = 'Uploaded ✓';
+    const ok = await persist(data);
+    if(ok){
+      await renderPhotoPreviews();
+      status.textContent = 'Uploaded ✓';
+    } else {
+      status.textContent = '';
+    }
   }catch(err){
     console.error(err);
-    status.textContent = err.message.includes('401') || /not logged in/i.test(err.message)
+    status.textContent = /401|not logged in/i.test(err.message || '')
       ? 'Please log in again, then retry.'
       : 'Upload failed. Try again.';
   }
 }
 
-function removeSecondaryPhoto(){
-  const data = loadData();
+async function removeSecondaryPhoto(){
+  const data = await loadData();
   data.profile = data.profile || { primary:'', secondary:'' };
   data.profile.secondary = '';
-  saveData(data);
-  renderPhotoPreviews();
+  await persist(data);
+  await renderPhotoPreviews();
   document.getElementById('status-secondary').textContent = '';
   document.getElementById('upload-secondary').value = '';
 }
@@ -213,7 +276,7 @@ async function handleProjectImageUpload(e){
   }
 }
 
-async function uploadFileToBlob(file){
+async function uploadFileToBlob(file, kind='image'){
   // Loads Vercel Blob's small browser client at call time (no build step
   // needed for this plain HTML/JS site). This uploads the file directly to
   // Blob storage — not through our own function — so there's no ~4.5MB
@@ -222,12 +285,13 @@ async function uploadFileToBlob(file){
   const blob = await upload(file.name, file, {
     access: 'public',
     handleUploadUrl: '/api/upload',
+    clientPayload: JSON.stringify({ kind }),
   });
   return blob.url;
 }
 
 /* ---- Projects ---- */
-function addProjectFromForm(){
+async function addProjectFromForm(){
   const name = document.getElementById('new-project-name').value.trim();
   const desc = document.getElementById('new-project-desc').value.trim();
   const tagsRaw = document.getElementById('new-project-tags').value.trim();
@@ -237,14 +301,16 @@ function addProjectFromForm(){
     return;
   }
   const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-  const data = loadData();
+  const data = await loadData();
   data.projects.push({
     id: slugify(name),
     name, desc, tags, link,
     image: pendingImageUrl
   });
-  saveData(data);
-  renderProjectList();
+  const ok = await persist(data);
+  if(!ok) return;
+
+  await renderProjectList();
 
   document.getElementById('new-project-name').value = '';
   document.getElementById('new-project-desc').value = '';
@@ -255,9 +321,9 @@ function addProjectFromForm(){
   pendingImageUrl = '';
 }
 
-function renderProjectList(){
+async function renderProjectList(){
   const list = document.getElementById('project-list');
-  const data = loadData();
+  const data = await loadData();
   if(!data.projects.length){
     list.innerHTML = `<div class="empty-state">No projects yet — add your first one below.</div>`;
     return;
@@ -273,12 +339,12 @@ function renderProjectList(){
   `).join('');
 
   list.querySelectorAll('[data-remove]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-remove');
-      const d = loadData();
+      const d = await loadData();
       d.projects = d.projects.filter(p => p.id !== id);
-      saveData(d);
-      renderProjectList();
+      await persist(d);
+      await renderProjectList();
     });
   });
 }
@@ -305,7 +371,7 @@ function echoCommand(command){
   out.scrollTop = out.scrollHeight;
 }
 
-function runCommand(command){
+async function runCommand(command){
   echoCommand(command);
   const lower = command.toLowerCase();
 
@@ -318,27 +384,35 @@ function runCommand(command){
     return;
   }
   if(lower === 'list projects'){
-    const data = loadData();
+    const data = await loadData();
     if(!data.projects.length){ logToConsole('No projects yet.'); return; }
     data.projects.forEach(p => logToConsole(`- ${p.name} (${p.id}) [${(p.tags||[]).join(', ')}]`));
     return;
   }
   if(lower.startsWith('update about ')){
     const text = command.slice('update about '.length);
-    const data = loadData();
+    const data = await loadData();
     data.about = text;
-    saveData(data);
-    document.getElementById('input-about').value = text;
-    logToConsole('About section updated.', 'ok');
+    const ok = await persist(data);
+    if(ok){
+      document.getElementById('input-about').value = text;
+      logToConsole('About section updated.', 'ok');
+    } else {
+      logToConsole('Could not update about text — check console for details.', 'err');
+    }
     return;
   }
   if(lower.startsWith('update footer ')){
     const text = command.slice('update footer '.length);
-    const data = loadData();
+    const data = await loadData();
     data.footer = text;
-    saveData(data);
-    document.getElementById('input-footer').value = text;
-    logToConsole('Footer updated.', 'ok');
+    const ok = await persist(data);
+    if(ok){
+      document.getElementById('input-footer').value = text;
+      logToConsole('Footer updated.', 'ok');
+    } else {
+      logToConsole('Could not update footer — check console for details.', 'err');
+    }
     return;
   }
   if(lower.startsWith('add project ')){
@@ -347,24 +421,28 @@ function runCommand(command){
     const [name, desc = '', tagsRaw = '', link = ''] = parts;
     if(!name){ logToConsole('Usage: add project <name> | <description> | <tags> | <link>', 'err'); return; }
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-    const data = loadData();
+    const data = await loadData();
     data.projects.push({ id: slugify(name), name, desc, tags, link, image: '' });
-    saveData(data);
-    renderProjectList();
-    logToConsole(`Project "${name}" added.`, 'ok');
+    const ok = await persist(data);
+    if(ok){
+      await renderProjectList();
+      logToConsole(`Project "${name}" added.`, 'ok');
+    } else {
+      logToConsole('Could not add project — check the details and try again.', 'err');
+    }
     return;
   }
   if(lower.startsWith('remove project ')){
     const target = command.slice('remove project '.length).trim().toLowerCase();
-    const data = loadData();
+    const data = await loadData();
     const before = data.projects.length;
     data.projects = data.projects.filter(p => p.id.toLowerCase() !== target && p.name.toLowerCase() !== target);
     if(data.projects.length === before){
       logToConsole(`No project matching "${target}".`, 'err');
       return;
     }
-    saveData(data);
-    renderProjectList();
+    await persist(data);
+    await renderProjectList();
     logToConsole(`Removed project "${target}".`, 'ok');
     return;
   }

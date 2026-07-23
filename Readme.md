@@ -15,6 +15,9 @@ admin.js         Login flow, form editors, console commands, image upload
 api/login.js     Checks the PIN server-side and sets a signed session cookie
 api/logout.js    Clears the session cookie
 api/session.js   Tells the admin page whether the visitor is logged in
+api/content.js   Reads/writes your site's content (about text, footer,
+                 quick facts, profile photos, resume, projects) to a JSON
+                 file in Vercel Blob — the shared source of truth
 api/upload.js    Issues a short-lived upload token (checks the session first);
                  the actual file goes straight from the browser to Blob,
                  not through this function
@@ -83,6 +86,40 @@ serverless function.
   `remove project <name or id>`, `list projects`, `theme light` / `theme dark`,
   `clear`.
 
+## How content is stored (and why local/live no longer conflict)
+
+Site content — about text, footer, quick facts, profile photos, resume,
+and the project list — lives in **one JSON file in Vercel Blob**
+(`data/portfolio-data.json`), read and written through `/api/content`.
+This is the same Blob store you already connected for image uploads.
+
+What this means in practice:
+
+- **Editing content on the live site is permanent and shared.** It's not
+  tied to your browser or device anymore — anyone who opens the site (or
+  you, from any device) sees the same content, because it all comes from
+  that one file.
+- **Pushing new code never touches your content.** Deploying from
+  GitHub only replaces the code (`index.html`, `admin.js`, etc.) — it has
+  no effect on `data/portfolio-data.json`. So adding a new feature locally
+  and pushing it will never "revert" text or photos you've added live.
+- **Local dev and production share the same content**, because both read
+  the same Blob store via the same `BLOB_READ_WRITE_TOKEN`. If you run
+  `vercel dev` locally and open `/admin.html`, you're looking at and
+  editing the exact same content as your live site.
+- There's still a small local cache in `localStorage` as a fallback for
+  when `/api/content` can't be reached (e.g. briefly offline), but it is
+  no longer the source of truth — think of it as a backup copy, not the
+  real thing.
+
+## Resume
+
+The admin panel has a **Resume** panel where you can upload your resume as
+a PDF or as an image (whichever is easier). Once uploaded, a "Download
+resume" button automatically appears on the public site, right next to
+"View projects" / "Get in touch." Removing it (via the "Remove resume"
+link in admin) hides that button again.
+
 ## How image uploads work
 
 Photos upload **directly from the browser to Vercel Blob** — they don't
@@ -94,6 +131,41 @@ uploading straight to Blob, a normal phone photo (often 5-15MB) works fine.
 checking you're logged in (via `onBeforeGenerateToken` in that file) — it
 never sees the actual file bytes. The current cap is 20MB per file; change
 `maximumSizeInBytes` in `api/upload.js` if you need more.
+
+## Data validation (Zod)
+
+All content saved to `localStorage` — about text, footer, quick facts,
+profile photos, and every project — is validated against a
+[Zod](https://zod.dev) schema (defined in `script.js`) before it's written,
+and re-validated when it's read back on page load.
+
+- On **save** (from the admin panel or the console), if something doesn't
+  pass validation (e.g. a project with no name), nothing is written and you
+  get an alert listing exactly which field(s) failed.
+- On **load** (the public page or admin panel opening), if the stored data
+  is somehow corrupted or malformed, the site quietly falls back to the
+  built-in defaults instead of showing a broken page.
+
+Zod is loaded from a CDN at runtime (`esm.sh`) rather than bundled, since
+this project has no build step. If the CDN is ever unreachable, the site
+still works — it just skips validation for that session rather than
+breaking.
+
+## Scroll reveal animations
+
+Each section on the public page slides into view the first time it
+scrolls into the viewport, each from a different direction:
+
+- **About** — slides in from the left
+- **Projects** — slides in from the right
+- **Contact** — slides up from below
+- **Footer** — slides down from above
+
+This is done with a small `IntersectionObserver` in `script.js` (see
+`initScrollReveal`) plus matching CSS in `styles.css` (`.reveal` and its
+`data-reveal` variants). It automatically respects
+`prefers-reduced-motion` — anyone with that OS setting enabled sees the
+content appear immediately, with no animation.
 
 ## Security
 

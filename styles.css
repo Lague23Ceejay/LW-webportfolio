@@ -59,6 +59,25 @@ img{max-width:100%; display:block;}
 }
 
 /* =========================================================
+   Scroll reveal
+   ========================================================= */
+.reveal{
+  opacity:0;
+  transition:opacity .8s ease, transform .8s cubic-bezier(.16,.84,.44,1);
+}
+.reveal[data-reveal="up"]{ transform:translateY(48px); }
+.reveal[data-reveal="down"]{ transform:translateY(-48px); }
+.reveal[data-reveal="left"]{ transform:translateX(-56px); }
+.reveal[data-reveal="right"]{ transform:translateX(56px); }
+.reveal.reveal-visible{
+  opacity:1;
+  transform:translate(0, 0);
+}
+@media (prefers-reduced-motion: reduce){
+  .reveal{ transition:none; opacity:1; transform:none; }
+}
+
+/* =========================================================
    Header / status bar
    ========================================================= */
 .site-header{
@@ -417,6 +436,18 @@ body.admin-body{
   align-self:flex-start;
 }
 .link-btn:hover{ color:#e5645a; }
+
+.resume-status{
+  font-size:13.5px;
+  color:var(--text-dim);
+  margin-bottom:10px;
+}
+.resume-status a{
+  color:var(--accent);
+  text-decoration:none;
+  border-bottom:1px solid transparent;
+}
+.resume-status a:hover{ border-color:var(--accent); }
 
 .photo-row{
   display:grid;
