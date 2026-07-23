@@ -15,7 +15,9 @@ admin.js         Login flow, form editors, console commands, image upload
 api/login.js     Checks the PIN server-side and sets a signed session cookie
 api/logout.js    Clears the session cookie
 api/session.js   Tells the admin page whether the visitor is logged in
-api/upload.js    Uploads to Vercel Blob — requires a valid session
+api/upload.js    Issues a short-lived upload token (checks the session first);
+                 the actual file goes straight from the browser to Blob,
+                 not through this function
 lib/auth.js      Shared helper for signing/checking the session cookie
                  (kept outside /api so Vercel doesn't treat it as a route)
 package.json     Dependency (@vercel/blob) for the API routes
@@ -80,6 +82,18 @@ serverless function.
   `add project <name> | <description> | <tags> | <link>`,
   `remove project <name or id>`, `list projects`, `theme light` / `theme dark`,
   `clear`.
+
+## How image uploads work
+
+Photos upload **directly from the browser to Vercel Blob** — they don't
+pass through our own serverless function. This matters because Vercel
+functions have a hard ~4.5MB request-size limit that can't be raised; by
+uploading straight to Blob, a normal phone photo (often 5-15MB) works fine.
+
+`/api/upload` only hands out a short-lived, scoped upload token after
+checking you're logged in (via `onBeforeGenerateToken` in that file) — it
+never sees the actual file bytes. The current cap is 20MB per file; change
+`maximumSizeInBytes` in `api/upload.js` if you need more.
 
 ## Security
 

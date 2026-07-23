@@ -1,12 +1,25 @@
-// POST /api/upload?filename=my-image.png
-// Body: raw file bytes (sent via fetch(url, { method:'POST', body: file }) from admin.js)
-// Requires the BLOB_READ_WRITE_TOKEN environment variable, which Vercel sets
-// automatically once you attach a Blob store to this project.
-// Also requires a valid admin session cookie — set by /api/login — so this
-// can't be used by anyone who just happens to find the URL.
+// POST /api/upload
+// This is now a *token* endpoint, not a file-upload endpoint. The browser
+// uploads the actual file bytes directly to Vercel Blob (not through this
+// function), which avoids Vercel's ~4.5MB serverless request-body limit.
+// This function's only job is to check the admin session is valid and then
+// hand out a short-lived, scoped upload token via @vercel/blob's
+// handleUpload() helper. See admin.js for the client side of this flow.
+//
+// Requires the BLOB_READ_WRITE_TOKEN environment variable, which Vercel
+// sets automatically once you attach a Blob store to this project.
 
-const { put } = require('@vercel/blob');
+const { handleUpload } = require('@vercel/blob/client');
 const { verifySession } = require('../lib/auth');
+
+const ALLOWED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/avif',
+];
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -14,29 +27,28 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!verifySession(req)) {
-    res.status(401).json({ error: 'Not logged in. Please log into the admin panel first.' });
-    return;
-  }
-
-  const filename = (req.query.filename || `upload-${Date.now()}`).toString();
-
-  // basic guardrails: keep this endpoint limited to images
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const allowedExt = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
-  if (!allowedExt.test(safeName)) {
-    res.status(400).json({ error: 'Only image files are allowed (png, jpg, gif, webp, svg, avif).' });
-    return;
-  }
-
   try {
-    const blob = await put(`projects/${Date.now()}-${safeName}`, req, {
-      access: 'public',
-      addRandomSuffix: true,
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async () => {
+        if (!verifySession(req)) {
+          throw new Error('Not logged in. Please log into the admin panel first.');
+        }
+        return {
+          allowedContentTypes: ALLOWED_TYPES,
+          addRandomSuffix: true,
+          maximumSizeInBytes: 20 * 1024 * 1024, // 20MB per file
+        };
+      },
+      onUploadCompleted: async () => {
+        // Nothing to persist server-side — the resulting URL is saved into
+        // localStorage by admin.js once the upload finishes.
+      },
     });
-    res.status(200).json({ url: blob.url });
+    res.status(200).json(jsonResponse);
   } catch (err) {
-    console.error('Blob upload failed:', err);
-    res.status(500).json({ error: 'Upload failed. Check that BLOB_READ_WRITE_TOKEN is configured.' });
+    console.error('Blob token generation failed:', err);
+    res.status(400).json({ error: err.message || 'Upload failed.' });
   }
 };

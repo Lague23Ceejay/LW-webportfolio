@@ -214,16 +214,16 @@ async function handleProjectImageUpload(e){
 }
 
 async function uploadFileToBlob(file){
-  const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
-    method: 'POST',
-    body: file
+  // Loads Vercel Blob's small browser client at call time (no build step
+  // needed for this plain HTML/JS site). This uploads the file directly to
+  // Blob storage — not through our own function — so there's no ~4.5MB
+  // size ceiling like a normal serverless function body would have.
+  const { upload } = await import('https://esm.sh/@vercel/blob@0.27.0/client');
+  const blob = await upload(file.name, file, {
+    access: 'public',
+    handleUploadUrl: '/api/upload',
   });
-  if(!res.ok){
-    const text = await res.text().catch(() => '');
-    throw new Error(`Upload failed (${res.status}): ${text}`);
-  }
-  const data = await res.json();
-  return data.url;
+  return blob.url;
 }
 
 /* ---- Projects ---- */
